@@ -1,0 +1,47 @@
+<idea-plugin>
+    <id>nl.clemaire.plugins.blua</id>
+    <name>Better Lua</name>
+    <version>1.0</version>
+    <vendor email="chris.lemaire@telfort.nl" url="http://clemaire.nl">clemaire</vendor>
+
+    <description>
+        A language plugin for Better Lua
+        This plugin enables the use of the Better Lua language, a take on multi-paradigm Minecraft-oriented Lua
+    </description>
+
+    <change-notes>
+
+    </change-notes>
+
+    <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html for description -->
+    <idea-version since-build="202"/>
+
+    <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
+         on how to target different products -->
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="Better Lua File" language="BLua" extensions="blua"
+                  implementationClass="nl.clemaire.plugins.blua.BLuaFileType" fieldName="INSTANCE"/>
+
+        <lang.parserDefinition language="BLua"
+                               implementationClass="nl.clemaire.plugins.blua.parser.BLuaParserDefinition"/>
+
+        <lang.syntaxHighlighterFactory language="BLua"
+                                       implementationClass="nl.clemaire.plugins.blua.colour.BLuaSyntaxHighlighterFactory"/>
+        <colorSettingsPage implementation="nl.clemaire.plugins.blua.colour.BLuaColourSettingsPage"/>
+        <lang.braceMatcher language="BLua"
+                           implementationClass="nl.clemaire.plugins.blua.braces.BLuaPairedBraceMatcher"/>
+
+        <completion.contributor language="BLua"
+                                implementationClass="nl.clemaire.plugins.blua.completion.BLuaKeywordCompletionContributor"/>
+
+        <lang.commenter language="BLua"
+                        implementationClass="nl.clemaire.plugins.blua.commenter.BLuaCommenter"/>
+    </extensions>
+
+    <actions>
+        <!-- Add your actions here -->
+    </actions>
+
+</idea-plugin>

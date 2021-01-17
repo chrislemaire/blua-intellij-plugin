@@ -1,0 +1,230 @@
+{
+  parserClass="nl.clemaire.plugins.blua.parser.BLuaParser"
+
+  extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+  extends(".*expr")=expr
+  extends(".*stmt")=statement
+
+  consumeTokenMethod(".*_expr|expr")="consumeTokenFast"
+
+  psiClassPrefix="BLua"
+  psiImplClassSuffix="Impl"
+  psiPackage="nl.clemaire.plugins.blua.ast"
+  psiImplPackage="nl.clemaire.plugins.blua.ast.impl"
+  psiImplUtilClass="nl.clemaire.plugins.blua.ast.BLuaUtil"
+
+  elementTypeHolderClass="nl.clemaire.plugins.blua.ast.BLuaTypes"
+  elementTypeClass="nl.clemaire.plugins.blua.ast.BLuaElementType"
+  tokenTypeClass="nl.clemaire.plugins.blua.ast.BLuaTokenType"
+
+  tokens=[
+    EOL="regexp:\r\n|\r|\n"
+    WHITE_SPACE="regexp:[ \t\x0B\f]+"
+
+    LINE_COMMENT="regexp:[\-]{2}[^\r\n]*"
+    BLOCK_COMMENT="regexp:[\-]{2}\[{2}.*]{2}+[\-]{2}"
+
+    OPERATOR="regexp:(<=|>=|==|~=|not|and|or|\.\.|[+\-*/%<>]|\^)"
+    SYNTAX_SYMBOL="regexp:(\.{3}|[;:=,.])"
+    SYNTAX_KEYWORD="regexp:(local|return|break|function|if|else|elseif|while|for|in|do|repeat|until|end)"
+
+    C_SQR_OPEN="regexp:[\[]"
+    C_SQR_CLOSE="regexp:[\]]"
+
+    C_PAR_OPEN="regexp:[(]"
+    C_PAR_CLOSE="regexp:[)]"
+
+    C_MUST_OPEN="regexp:[{]"
+    C_MUST_CLOSE="regexp:[}]"
+
+    ID_TOKEN="regexp:(!(<=|>=|==|~=|not|and|or|\.\.|[+\-*/%<>0-9]|\^)\S*)|((<=|>=|==|~=|not|and|or|\.\.|[+\-*/%<>]|\^)\S+)"
+    INT="regexp:(0|[1-9][0-9]*)"
+    DOUBLE="regexp:((0|[1-9][0-9]*)\.[0-9]+)"
+
+    TRUE="true"
+    FALSE="false"
+
+    STRING_LITERAL="regexp:\"[^\"\n\r]*\""
+  ]
+}
+
+bluaFile ::= WS {statement semi+ WS}*
+
+// A block of statements. A block is usually encased in a scope.
+block ::= WS {statement semi+ WS}* [last_statement semi+ WS]
+
+// Normal statements and the last statement in a block summed up.
+// The last statement in a block cannot be executed in the middle of block because
+// of the interruption it gives to control flow. Preventing these cases is easier
+// than checking for unreachable points later.
+private statement_recover ::= !(semi)
+
+last_statement ::= return_stmt | break_stmt {recoverWhile=statement_recover}
+statement ::=
+      named_function_stmt
+    | assign_stmt
+    | block_stmt
+    | while_stmt
+    | repeat_stmt
+    | if_stmt
+    | for_stmt
+    | foreach_stmt
+    | expr_stmt {recoverWhile=statement_recover}
+
+// Block statement for creating a new scope
+block_stmt ::= "do" block "end" {pin=1}
+
+// Control flow execution statements
+while_stmt ::= "while" expr "do" block "end" {pin=1}
+repeat_stmt ::= "repeat" block "until" expr {pin=1}
+
+for_stmt ::= "for" id "=" expr "," expr ["," expr] "do" block "end" {pin=3}
+foreach_stmt ::= "for" ids "in" exprs "do" block "end" {pin=3}
+
+if_stmt ::= "if" expr "then" block
+             {"elseif" expr "then" block}*
+             ["else" block] "end" {pin=1}
+
+// Control flow interruption statements
+return_stmt ::= "return" [exprs] {pin=1}
+break_stmt ::= "break"
+
+// Assigning existing or new variables
+assign_stmt ::= ["local"] vars "=" exprs
+
+// Expression statement, executing an expression as a statement is always allowed, but not always effectful
+expr_stmt ::= var_expr function_call_expr
+
+// Named function statement
+named_function_stmt ::= ["local"] "function" id "(" [params] ")" block "end"
+{
+    pin=2
+    implements="nl.clemaire.plugins.blua.ast.ext.BLuaFunctionDeclaration"
+}
+
+// An expression, this could be any expression under the ordered groups.
+// The groups underneath are ordered in reverse precedence order.
+private expr_recover ::=
+    !(semi|">"|">="|"<"|"<="|"=="|"~="|".."|"+"|"-"|"/"|"*"|"%"|"^"|"."|","|")"|"and"|"or"|"not") &
+    statement_recover
+
+expr ::=
+      or_group
+    | and_group
+    | cmp_group
+    | concat_group
+    | sum_group
+    | mul_group
+    | unary_group
+    | exp_group
+    | prefix_group
+    | func_group
+    | prim_group {recoverWhile=expr_recover}
+
+// The expression groups, these determine operator precedence
+private or_group ::= or_expr
+private and_group ::= and_expr
+private cmp_group ::= lt_expr | lte_expr | gt_expr | gte_expr | eq_expr | neq_expr
+private concat_group ::= concat_expr
+private sum_group ::= plus_expr | minus_expr
+private mul_group ::= mul_expr | div_expr | mod_expr
+private unary_group ::= not_expr | minus_expr
+private exp_group ::= exp_expr
+private prefix_group ::= prefix_expr
+private func_group ::= function_expr | lambda_expr
+private prim_group ::= int_expr | double_expr | string_expr | bool_expr
+
+//// The actual expressions
+
+// Boolean expressions, those consisting of logical statements such as and, or, not
+or_expr ::= expr "or" expr {pin=2}
+and_expr ::= expr "and" expr {pin=2}
+not_expr ::= "not" expr {pin=1}
+
+// Comparator expressions, these consist of comparing comparable entities
+lt_expr ::= expr "<" expr {pin=2}
+lte_expr ::= expr "<=" expr {pin=2}
+gt_expr ::= expr ">" expr {pin=2}
+gte_expr ::= expr ">=" expr {pin=2}
+eq_expr ::= expr "==" expr {pin=2}
+neq_expr ::= expr "~=" expr {pin=2}
+
+// Concatenation expression for strings
+concat_expr ::= expr ".." expr {pin=2 rightAssociative=true}
+
+// Number expressions, for adding, multiplying and taking the power of numbers
+plus_expr ::= expr "+" expr {pin=2}
+minus_expr ::= expr "-" expr {pin=2}
+
+mul_expr ::= expr "*" expr {pin=2}
+div_expr ::= expr "/" expr {pin=2}
+mod_expr ::= expr "%" expr {pin=2}
+
+exp_expr ::= expr "^" expr {pin=2 rightAssociative=true}
+
+// Prefix expressions, these can appear before a function call
+prefix_expr ::=
+    { var_ref_expr
+    | par_expr } prefix_expr_right*
+private prefix_expr_right ::=
+      index_tab_expr
+    | index_dot_expr
+    | function_call_expr
+
+// Variable expressions, these all resolve to some variable that can be changes. Also part of the prefix group
+var_expr ::=
+    { var_ref_expr | par_expr } var_leftover
+    | var_ref_expr
+
+private var_leftover ::=
+      { index_dot_expr | index_tab_expr | function_call_expr } var_leftover
+    | { index_dot_expr | index_tab_expr }
+
+var_ref_expr ::= var_ref
+par_expr ::= "(" expr ")"
+
+function_call_expr ::= args
+index_tab_expr ::= "[" expr "]"
+index_dot_expr ::= "." var_ref_expr
+
+// Anonymous function expressions, these are lambdas
+function_expr ::= "function" "(" [params] ")" block "end"
+{
+    pin=1
+    mixin="nl.clemaire.plugins.blua.ast.mixin.BLuaAnonymousFunctionDeclarationMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.BLuaFunctionDeclaration"
+}
+lambda_expr ::= "(" [params] ")" "=>" block
+{
+    pin=1
+    mixin="nl.clemaire.plugins.blua.ast.mixin.BLuaAnonymousFunctionDeclarationMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.BLuaFunctionDeclaration"
+}
+
+// Primitive expressions, basically literals
+int_expr ::= INT
+double_expr ::= DOUBLE
+string_expr ::= STRING_LITERAL
+bool_expr ::= TRUE | FALSE
+
+// Utility lists and argument collections
+par_args ::= "(" [exprs] ")" {extends=args}
+string_args ::= string_expr {extends=args}
+
+args ::= par_args //| string_args // TODO: table_constructor
+vars ::= var_expr {"," var_expr}*
+params ::= ids ["," WS "..."] | "..."
+{
+    mixin="nl.clemaire.plugins.blua.ast.mixin.BLuaParamsMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.BLuaDeclaration"
+}
+ids ::= id {"," id}*
+exprs ::= {expr ","}* expr
+
+// Different types of ids. References reference ids
+var_ref ::= ID_TOKEN
+id ::= ID_TOKEN
+
+// End-of-line and semicolon tokens for separating statements
+private semi ::= (EOL+|";"+)
+private WS ::= EOL*
