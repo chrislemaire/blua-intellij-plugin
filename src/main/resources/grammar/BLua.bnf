@@ -91,6 +91,9 @@ break_stmt ::= "break"
 
 // Assigning existing or new variables
 assign_stmt ::= ["local"] vars "=" exprs
+{
+    implements="nl.clemaire.plugins.blua.ast.ext.BLuaAssignStmtExt"
+}
 
 // Expression statement, executing an expression as a statement is always allowed, but not always effectful
 expr_stmt ::= var_expr function_call_expr
@@ -99,7 +102,7 @@ expr_stmt ::= var_expr function_call_expr
 named_function_stmt ::= ["local"] "function" id "(" [params] ")" block "end"
 {
     pin=2
-    implements="nl.clemaire.plugins.blua.ast.ext.BLuaFunctionDeclaration"
+    implements="nl.clemaire.plugins.blua.ast.ext.BLuaNamedFunctionStmtExt"
 }
 
 // An expression, this could be any expression under the ordered groups.
@@ -174,13 +177,17 @@ private prefix_expr_right ::=
 // Variable expressions, these all resolve to some variable that can be changes. Also part of the prefix group
 var_expr ::=
     { var_ref_expr | par_expr } var_leftover
-    | var_ref_expr
+    | id
 
 private var_leftover ::=
       { index_dot_expr | index_tab_expr | function_call_expr } var_leftover
     | { index_dot_expr | index_tab_expr }
 
-var_ref_expr ::= var_ref
+var_ref_expr ::= ID_TOKEN
+{
+    mixin="nl.clemaire.plugins.blua.ast.mixin.BLuaVarRefMixin"
+}
+
 par_expr ::= "(" expr ")"
 
 function_call_expr ::= args
@@ -191,14 +198,12 @@ index_dot_expr ::= "." var_ref_expr
 function_expr ::= "function" "(" [params] ")" block "end"
 {
     pin=1
-    mixin="nl.clemaire.plugins.blua.ast.mixin.BLuaAnonymousFunctionDeclarationMixin"
-    implements="nl.clemaire.plugins.blua.ast.ext.BLuaFunctionDeclaration"
+    implements="nl.clemaire.plugins.blua.ast.ext.BLuaAnonymousFunctionExt"
 }
 lambda_expr ::= "(" [params] ")" "=>" block
 {
     pin=1
-    mixin="nl.clemaire.plugins.blua.ast.mixin.BLuaAnonymousFunctionDeclarationMixin"
-    implements="nl.clemaire.plugins.blua.ast.ext.BLuaFunctionDeclaration"
+    implements="nl.clemaire.plugins.blua.ast.ext.BLuaAnonymousFunctionExt"
 }
 
 // Primitive expressions, basically literals
@@ -211,19 +216,20 @@ bool_expr ::= TRUE | FALSE
 par_args ::= "(" [exprs] ")" {extends=args}
 string_args ::= string_expr {extends=args}
 
-args ::= par_args //| string_args // TODO: table_constructor
+args ::= par_args | string_args // TODO: table_constructor
 vars ::= var_expr {"," var_expr}*
 params ::= ids ["," WS "..."] | "..."
 {
-    mixin="nl.clemaire.plugins.blua.ast.mixin.BLuaParamsMixin"
-    implements="nl.clemaire.plugins.blua.ast.ext.BLuaDeclaration"
+    implements="nl.clemaire.plugins.blua.ast.ext.BLuaParamsExt"
 }
 ids ::= id {"," id}*
+{
+    implements="nl.clemaire.plugins.blua.ast.ext.BLuaIdsExt"
+}
 exprs ::= {expr ","}* expr
 
-// Different types of ids. References reference ids
-var_ref ::= ID_TOKEN
-id ::= ID_TOKEN
+// ID token shorthand
+private id ::= ID_TOKEN
 
 // End-of-line and semicolon tokens for separating statements
 private semi ::= (EOL+|";"+)

@@ -14,7 +14,7 @@ class BLuaKeywordCompletionContributor : CompletionContributor() {
             or(psiElement(BLuaTypes.NAMED_FUNCTION_STMT), psiElement(BLuaTypes.FUNCTION_EXPR)))
         private val inFileP = psiElement()
 
-        private val fbKeywordCompletion = provider { params, context, results ->
+        private val fbKeywordCompletion = provider { _, _, results ->
             results.addElement(create("return"))
         }
 

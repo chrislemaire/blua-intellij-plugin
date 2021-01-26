@@ -37,7 +37,7 @@ class BLuaSyntaxHighlighter : SyntaxHighlighterBase() {
         C_SQR_CLOSE -> arrayOf(DefaultLanguageHighlighterColors.BRACKETS)
         C_SQR_OPEN -> arrayOf(DefaultLanguageHighlighterColors.BRACKETS)
 
-        ID -> arrayOf(DefaultLanguageHighlighterColors.IDENTIFIER)
+//        ID -> arrayOf(DefaultLanguageHighlighterColors.IDENTIFIER)
 
         INT -> arrayOf(DefaultLanguageHighlighterColors.NUMBER)
         DOUBLE -> arrayOf(DefaultLanguageHighlighterColors.NUMBER)

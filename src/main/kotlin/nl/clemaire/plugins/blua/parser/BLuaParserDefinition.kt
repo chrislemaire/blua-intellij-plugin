@@ -8,13 +8,10 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.FileViewProvider
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
-import com.intellij.psi.TokenType
-import com.intellij.psi.TokenType.WHITE_SPACE
 import com.intellij.psi.tree.IFileElementType
 import com.intellij.psi.tree.TokenSet
 import nl.clemaire.plugins.blua.BLuaLanguage
-import nl.clemaire.plugins.blua.ast.BLuaFile
-import nl.clemaire.plugins.blua.ast.BLuaTypes
+import nl.clemaire.plugins.blua.BLuaFile
 import nl.clemaire.plugins.blua.ast.BLuaTypes.*
 
 class BLuaParserDefinition : ParserDefinition {

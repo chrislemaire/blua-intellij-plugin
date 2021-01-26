@@ -2,31 +2,35 @@
 
 package nl.clemaire.plugins.blua.ast
 
-import com.github.izhangzhihao.rainbow.brackets.util.findPrevSibling
 import com.intellij.psi.PsiElement
-import nl.clemaire.plugins.blua.ast.ext.BLuaDeclaration
+import com.intellij.psi.PsiReference
+import nl.clemaire.plugins.blua.ast.ext.Scoped
 
-fun PsiElement.lookupDeclaration(name: String): PsiElement? {
-    if (this is BLuaDeclaration) {
-        val decl = scope()[name]
-        if (decl != null)
-            return decl
+/**
+ * Finds a previous sibling that satisfies the given boolean condition.
+ */
+fun PsiElement.findPreviousSibling(p: (PsiElement) -> Boolean): PsiElement? {
+    var current = prevSibling
+    while (current != null && !p(current)) {
+        current = current.prevSibling
     }
-
-    return (findPrevSibling { it is BLuaDeclaration } ?: parent)?.lookupDeclaration(name)
+    return current
 }
 
 /**
- * Finds a previous or upper previous sibling or parent that satisfies the given boolean condition.
+ * Finds a previous sibling or upper previous sibling or parent that satisfies the given boolean condition.
  */
-fun PsiElement.findPreviousOrUpNode(p: (PsiElement) -> Boolean): PsiElement? =
-    findPrevSibling(p) ?: parent?.findPreviousOrUpNode(p)
+fun PsiElement.findPreviousSiblingOrParentNode(p: (PsiElement) -> Boolean): PsiElement? =
+    findPreviousSibling(p) ?: parent?.findPreviousSiblingOrParentNode(p)
 
 /**
  * Finds the previous declaration node before this one or null if none exists.
  */
-fun PsiElement.findPreviousDeclarationNode(): BLuaDeclaration? =
-    findPreviousOrUpNode { it is BLuaDeclaration } as BLuaDeclaration?
+fun PsiElement.getPreviousDeclarationNode(): Scoped? =
+    findPreviousSiblingOrParentNode { it is Scoped } as Scoped?
 
-fun PsiElement.previousScope(): Map<String, PsiElement> =
-    findPreviousDeclarationNode()?.scope() ?: mapOf()
+/**
+ * Finds the full scope of the last scope changing declaration.
+ */
+fun PsiElement.getPreviousScope(): Map<String, PsiElement> =
+    getPreviousDeclarationNode()?.scope() ?: mapOf()

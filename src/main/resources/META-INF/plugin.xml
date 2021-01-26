@@ -6,7 +6,8 @@
 
     <description>
         A language plugin for Better Lua
-        This plugin enables the use of the Better Lua language, a take on multi-paradigm Minecraft-oriented Lua
+        This plugin enables the use of the Better Lua language, a take on multi-paradigm Minecraft-oriented
+        Lua
     </description>
 
     <change-notes>
@@ -35,9 +36,17 @@
 
         <completion.contributor language="BLua"
                                 implementationClass="nl.clemaire.plugins.blua.completion.BLuaKeywordCompletionContributor"/>
+<!--        <psi.referenceContributor language="BLua" order="first"-->
+<!--                                  implementation="nl.clemaire.plugins.blua.completion.BLuaVariableReferenceContributor"/>-->
+
+        <annotator language="BLua"
+                   implementationClass="nl.clemaire.plugins.blua.annotator.BLuaVariableReferenceAnnotator"/>
 
         <lang.commenter language="BLua"
                         implementationClass="nl.clemaire.plugins.blua.commenter.BLuaCommenter"/>
+
+        <lang.refactoringSupport language="BLua"
+                                 implementationClass="nl.clemaire.plugins.blua.refactor.BLuaRefactoringSupportProvider"/>
     </extensions>
 
     <actions>
