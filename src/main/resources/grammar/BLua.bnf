@@ -4,6 +4,7 @@
   extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
   extends(".*expr")=expr
   extends(".*stmt")=statement
+  extends(".*type")=type
 
   consumeTokenMethod(".*_expr|expr")="consumeTokenFast"
 
@@ -26,7 +27,7 @@
 
     OPERATOR="regexp:(<=|>=|==|~=|not|and|or|\.\.|[+\-*/%<>]|\^)"
     SYNTAX_SYMBOL="regexp:(\.{3}|[;:=,.])"
-    SYNTAX_KEYWORD="regexp:(local|return|break|function|if|else|elseif|while|for|in|do|repeat|until|end)"
+    SYNTAX_KEYWORD="regexp:(local|return|break|function|if|else|elseif|while|for|in|do|repeat|until|end|table|with|extending)"
 
     C_SQR_OPEN="regexp:[\[]"
     C_SQR_CLOSE="regexp:[\]]"
@@ -44,14 +45,25 @@
     TRUE="true"
     FALSE="false"
 
+    STD_TYPE_TOKEN="(Int|Double|Byte|Char|String|Bool)"
+
     STRING_LITERAL="regexp:\"[^\"\n\r]*\""
   ]
 }
 
-bluaFile ::= WS {statement semi+ WS}*
+bluaFile ::=
+    [module EOL+ WS]
+    {require EOL+ WS}*
+    WS {statement semi+ WS}*
 
 // A block of statements. A block is usually encased in a scope.
 block ::= WS {statement semi+ WS}* [last_statement semi+ WS]
+
+// Module declaration to be placed at the very start of a file
+module ::= "module" qualified_id ["exports" "(" {ID_TOKEN {"," WS ID_TOKEN}*}? ")"]
+
+// Require statements to be placed at the start of a file
+require ::= "require" qualified_id ["as" ID_TOKEN]
 
 // Normal statements and the last statement in a block summed up.
 // The last statement in a block cannot be executed in the middle of block because
@@ -62,7 +74,9 @@ private statement_recover ::= !(semi)
 last_statement ::= return_stmt | break_stmt {recoverWhile=statement_recover}
 statement ::=
       named_function_stmt
+    | decl_stmt
     | assign_stmt
+    | class_decl_stmt
     | block_stmt
     | while_stmt
     | repeat_stmt
@@ -78,8 +92,8 @@ block_stmt ::= "do" block "end" {pin=1}
 while_stmt ::= "while" expr "do" block "end" {pin=1}
 repeat_stmt ::= "repeat" block "until" expr {pin=1}
 
-for_stmt ::= "for" id "=" expr "," expr ["," expr] "do" block "end" {pin=3}
-foreach_stmt ::= "for" ids "in" exprs "do" block "end" {pin=3}
+for_stmt ::= "for" typed_id "=" WS expr "," WS expr ["," WS expr] "do" block "end" {pin=3}
+foreach_stmt ::= "for" typed_ids "in" exprs "do" block "end" {pin=3}
 
 if_stmt ::= "if" expr "then" block
              {"elseif" expr "then" block}*
@@ -90,20 +104,31 @@ return_stmt ::= "return" [exprs] {pin=1}
 break_stmt ::= "break"
 
 // Assigning existing or new variables
+decl_stmt ::= "local" vars
 assign_stmt ::= ["local"] vars "=" exprs
 {
     implements="nl.clemaire.plugins.blua.ast.ext.BLuaAssignStmtExt"
 }
 
+// Class statement, for declaring a new class
+class_decl_stmt ::= "class" ID_TOKEN ["extending" ID_TOKEN] {"with" ID_TOKEN}* class_body "end"
+
 // Expression statement, executing an expression as a statement is always allowed, but not always effectful
 expr_stmt ::= var_expr function_call_expr
 
 // Named function statement
-named_function_stmt ::= ["local"] "function" id "(" [params] ")" block "end"
+named_function_stmt ::= ["local"] "function" ID_TOKEN "(" [params] ")" [":" type] block "end"
 {
     pin=2
     implements="nl.clemaire.plugins.blua.ast.ext.BLuaNamedFunctionStmtExt"
 }
+
+// Class body, fields, methods, etc.
+class_body ::= WS {{field | method} semi+ WS}*
+field ::=
+      ["local"] typed_ids "=" exprs
+    | ["local"] force_typed_ids
+method ::= named_function_stmt
 
 // An expression, this could be any expression under the ordered groups.
 // The groups underneath are ordered in reverse precedence order.
@@ -122,6 +147,7 @@ expr ::=
     | exp_group
     | prefix_group
     | func_group
+    | table_group
     | prim_group {recoverWhile=expr_recover}
 
 // The expression groups, these determine operator precedence
@@ -135,6 +161,7 @@ private unary_group ::= not_expr | minus_expr
 private exp_group ::= exp_expr
 private prefix_group ::= prefix_expr
 private func_group ::= function_expr | lambda_expr
+private table_group ::= table_expr
 private prim_group ::= int_expr | double_expr | string_expr | bool_expr
 
 //// The actual expressions
@@ -177,7 +204,7 @@ private prefix_expr_right ::=
 // Variable expressions, these all resolve to some variable that can be changes. Also part of the prefix group
 var_expr ::=
     { var_ref_expr | par_expr } var_leftover
-    | id
+    | typed_id
 
 private var_leftover ::=
       { index_dot_expr | index_tab_expr | function_call_expr } var_leftover
@@ -195,7 +222,7 @@ index_tab_expr ::= "[" expr "]"
 index_dot_expr ::= "." var_ref_expr
 
 // Anonymous function expressions, these are lambdas
-function_expr ::= "function" "(" [params] ")" block "end"
+function_expr ::= "function" "(" [params] ")" [type_decl] block "end"
 {
     pin=1
     implements="nl.clemaire.plugins.blua.ast.ext.BLuaAnonymousFunctionExt"
@@ -206,11 +233,40 @@ lambda_expr ::= "(" [params] ")" "=>" block
     implements="nl.clemaire.plugins.blua.ast.ext.BLuaAnonymousFunctionExt"
 }
 
+// Table expression, constructs a table with named fields
+table_expr ::= "{" table_fields "}"
+
 // Primitive expressions, basically literals
 int_expr ::= INT
 double_expr ::= DOUBLE
 string_expr ::= STRING_LITERAL
 bool_expr ::= TRUE | FALSE
+
+// Types, similarly defined to Kotlin/Scala types, using postfix colon, so as to be able to make types implicit later
+private type_decl ::= ":" type
+
+type ::=
+      record_type_group
+    | array_type_group
+    | std_type_group
+    | class_type_group
+
+private record_type_group ::= record_type
+private array_type_group ::= array_type
+private std_type_group ::= std_type
+private class_type_group ::= class_type
+
+// 'Record' types, special syntax for unnamed tables, containing simple data
+record_type ::= "table" "{" {ID_TOKEN type_decl}* "}"
+
+// 'Array' types, special syntax using square brackets after initial type name
+array_type ::= type "[" "]"
+
+// 'Primitive' types, including String
+std_type ::= STD_TYPE_TOKEN
+
+// 'Primitive' types, including String
+class_type ::= ID_TOKEN
 
 // Utility lists and argument collections
 par_args ::= "(" [exprs] ")" {extends=args}
@@ -218,19 +274,32 @@ string_args ::= string_expr {extends=args}
 
 args ::= par_args | string_args // TODO: table_constructor
 vars ::= var_expr {"," var_expr}*
-params ::= ids ["," WS "..."] | "..."
+params ::= typed_ids ["," WS "..."] | "..."
 {
     implements="nl.clemaire.plugins.blua.ast.ext.BLuaParamsExt"
 }
-ids ::= id {"," id}*
+force_typed_ids ::= force_typed_id {"," force_typed_id}*
 {
-    implements="nl.clemaire.plugins.blua.ast.ext.BLuaIdsExt"
+}
+typed_ids ::= typed_id {"," typed_id}*
+{
 }
 exprs ::= {expr ","}* expr
 
-// ID token shorthand
-private id ::= ID_TOKEN
+table_fields ::= {table_field field_sep}* [table_field]
+table_field ::=
+      "[" expr "]" "=" expr
+    | ID_TOKEN "=" expr
+//    | expr   // Disallow table fields being just expressions
+
+// Qualified identifier tokens can have prefixed module names
+qualified_id ::= {ID_TOKEN "."}* ID_TOKEN
+
+// A name that is declared for the first time and represents a typed variable from now on
+force_typed_id ::= ID_TOKEN type_decl
+typed_id ::= ID_TOKEN [type_decl]
 
 // End-of-line and semicolon tokens for separating statements
+private field_sep ::= ";" | ","
 private semi ::= (EOL+|";"+)
 private WS ::= EOL*

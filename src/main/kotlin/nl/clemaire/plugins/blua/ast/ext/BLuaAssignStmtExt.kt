@@ -14,7 +14,7 @@ interface BLuaAssignStmtExt : Scoped {
     @JvmDefault
     override fun scope(): Map<String, PsiElement> {
         val declared = getVars().exprList
-            .mapNotNull { (it as BLuaVarExpr).idToken }
+            .mapNotNull { (it as BLuaVarExpr).typedId?.idToken }
             .map { it.text to it }
             .toMap()
 

@@ -1,20 +1,15 @@
 package nl.clemaire.plugins.blua.ast.ext
 
 import com.intellij.psi.PsiElement
-import nl.clemaire.plugins.blua.ast.BLuaIds
-import nl.clemaire.plugins.blua.ast.getPreviousScope
+import nl.clemaire.plugins.blua.ast.BLuaTypedIds
 
-interface BLuaParamsExt : PsiElement, Scoped {
+interface BLuaParamsExt : PsiElement {
     /**
      * Gets the BLuaIds element under this Params node.
      */
-    fun getIds(): BLuaIds?
+    fun getTypedIds(): BLuaTypedIds?
 
     @JvmDefault
-    override fun scope(): Map<String, PsiElement> {
-        val declared = getIds()?.getIds()?.map { it.text to it }?.toMap() ?: mapOf()
-
-        // Declared parameters and function name override previous scope names
-        return getPreviousScope() + declared
-    }
+    fun scope(): Map<String, PsiElement> =
+        getTypedIds()?.typedIdList?.map { it.idToken.text to it.idToken }?.toMap() ?: mapOf()
 }

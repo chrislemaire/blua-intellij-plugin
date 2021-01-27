@@ -34,7 +34,8 @@ COMMENT_START=\-\-+
 OPERATOR=(<=|>=|==|[~]=|not|and|or|\.\.|[+\-*/%<>]|\^)
 
 SYNTAX_SYMBOL=(\.{3}|=>|[;:=,.])
-SYNTAX_KEYWORD=(local|return|break|function|if|then|else|elseif|while|for|in|do|repeat|until|end)
+SYNTAX_KEYWORD=(local|return|break|function|if|then|else|elseif|while|for|in|do|repeat|until|end
+    |table|with|extending|class|module|require)
 
 C_SQR_OPEN=[\[]
 C_SQR_CLOSE=[\]]
@@ -47,10 +48,12 @@ C_MUST_CLOSE=[}]
 
 ID_TOKEN=[^0-9 \"\n\r\t\x0B\f\(\)\[\]\{\}\.\,\:\;]+[^ \n\r\t\x0B\f\(\)\[\]\{\}\.\,\:\;]*
 
-INT=(0|[1-9][0-9]*)
-DOUBLE=((0|[1-9][0-9]*)\.[0-9]+)
+INT=(0|[-]?[1-9][0-9]*)
+DOUBLE=((0|[-]?[1-9][0-9]*)\.[0-9]+)
 
 STRING_LITERAL=\"[^\"\n\r]*\"
+
+STD_TYPE=(Int|Double|Byte|Char|String|Bool)
 
 %%
 
@@ -99,6 +102,8 @@ STRING_LITERAL=\"[^\"\n\r]*\"
   {DOUBLE}              { return DOUBLE; }
 
   {STRING_LITERAL}      { return STRING_LITERAL; }
+
+  {STD_TYPE}            { return STD_TYPE_TOKEN; }
 
   {ID_TOKEN}            { return ID_TOKEN; }
 

@@ -20,8 +20,12 @@ fun PsiElement.findPreviousSibling(p: (PsiElement) -> Boolean): PsiElement? {
 /**
  * Finds a previous sibling or upper previous sibling or parent that satisfies the given boolean condition.
  */
-fun PsiElement.findPreviousSiblingOrParentNode(p: (PsiElement) -> Boolean): PsiElement? =
-    findPreviousSibling(p) ?: parent?.findPreviousSiblingOrParentNode(p)
+fun PsiElement.findPreviousSiblingOrParentNode(start: Boolean = true, p: (PsiElement) -> Boolean): PsiElement? {
+    if (!start && p(this)) {
+        return this
+    }
+    return findPreviousSibling(p) ?: parent?.findPreviousSiblingOrParentNode(false, p)
+}
 
 /**
  * Finds the previous declaration node before this one or null if none exists.

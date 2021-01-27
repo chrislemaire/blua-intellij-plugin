@@ -17,7 +17,7 @@ abstract class BLuaVarRefMixin(node: ASTNode) : ASTWrapperPsiElement(node), PsiR
         this
 
     override fun getRangeInElement(): TextRange =
-        element.textRangeInParent
+        TextRange.allOf(text)
 
     override fun resolve(): PsiElement? =
         getPreviousScope()[this.text]
