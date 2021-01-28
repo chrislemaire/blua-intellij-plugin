@@ -47,6 +47,9 @@
 
         <lang.refactoringSupport language="BLua"
                                  implementationClass="nl.clemaire.plugins.blua.refactor.BLuaRefactoringSupportProvider"/>
+
+        <lang.findUsagesProvider language="BLua"
+                                 implementationClass="nl.clemaire.plugins.blua.findUsages.BLuaFindUsagesProvider"/>
     </extensions>
 
     <actions>

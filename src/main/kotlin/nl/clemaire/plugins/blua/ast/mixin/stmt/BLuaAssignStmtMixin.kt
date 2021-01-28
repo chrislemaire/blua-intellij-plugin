@@ -1,19 +1,15 @@
-package nl.clemaire.plugins.blua.ast.ext
+package nl.clemaire.plugins.blua.ast.mixin.stmt
 
+import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
+import nl.clemaire.plugins.blua.ast.BLuaAssignStmt
 import nl.clemaire.plugins.blua.ast.BLuaVarExpr
-import nl.clemaire.plugins.blua.ast.BLuaVars
 import nl.clemaire.plugins.blua.ast.getPreviousScope
+import nl.clemaire.plugins.blua.ast.impl.BLuaStatementImpl
 
-interface BLuaAssignStmtExt : Scoped {
-    /**
-     * Gets the BLuaVars element under this Assign node.
-     */
-    fun getVars(): BLuaVars
-
-    @JvmDefault
+abstract class BLuaAssignStmtMixin(node: ASTNode) : BLuaStatementImpl(node), BLuaAssignStmt {
     override fun scope(): Map<String, PsiElement> {
-        val declared = getVars().exprList
+        val declared = vars.exprList
             .mapNotNull { (it as BLuaVarExpr).typedId?.idToken }
             .map { it.text to it }
             .toMap()

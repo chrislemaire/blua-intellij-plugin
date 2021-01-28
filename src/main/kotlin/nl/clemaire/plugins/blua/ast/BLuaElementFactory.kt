@@ -10,7 +10,7 @@ object BLuaElementFactory {
     /**
      * Creates a BLuaId elements in the current project with the given name.
      */
-    fun createName(project: Project, name: String): PsiElement {
+    fun createIdToken(project: Project, name: String): PsiElement {
         val file = createFile(project, "function $name() end")
         return (file.children[0] as BLuaNamedFunctionStmt).getIdToken()!!
     }

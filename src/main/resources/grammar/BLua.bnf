@@ -107,11 +107,19 @@ break_stmt ::= "break"
 decl_stmt ::= "local" vars
 assign_stmt ::= ["local"] vars "=" exprs
 {
-    implements="nl.clemaire.plugins.blua.ast.ext.BLuaAssignStmtExt"
+    mixin="nl.clemaire.plugins.blua.ast.mixin.stmt.BLuaAssignStmtMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.stmt.BLuaAssignStmtExt"
 }
 
 // Class statement, for declaring a new class
-class_decl_stmt ::= "class" ID_TOKEN ["extending" ID_TOKEN] {"with" ID_TOKEN}* class_body "end"
+class_decl_stmt ::= "class" ID_TOKEN [extends] {with}* class_body "end"
+{
+    mixin="nl.clemaire.plugins.blua.ast.mixin.stmt.BLuaClassDeclStmtMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.stmt.BLuaClassDeclStmtExt"
+}
+
+extends ::= "extending" ID_TOKEN
+with ::= "with" ID_TOKEN
 
 // Expression statement, executing an expression as a statement is always allowed, but not always effectful
 expr_stmt ::= var_expr function_call_expr
@@ -120,14 +128,18 @@ expr_stmt ::= var_expr function_call_expr
 named_function_stmt ::= ["local"] "function" ID_TOKEN "(" [params] ")" [":" type] block "end"
 {
     pin=2
-    implements="nl.clemaire.plugins.blua.ast.ext.BLuaNamedFunctionStmtExt"
+    mixin="nl.clemaire.plugins.blua.ast.mixin.stmt.BLuaNamedFunctionStmtMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.stmt.BLuaNamedFunctionStmtExt"
 }
 
 // Class body, fields, methods, etc.
 class_body ::= WS {{field | method} semi+ WS}*
-field ::=
-      ["local"] typed_ids "=" exprs
-    | ["local"] force_typed_ids
+field ::= ["local"] ID_TOKEN [":" type] ["=" expr]
+{
+    mixin="nl.clemaire.plugins.blua.ast.mixin.misc.BLuaFieldMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.misc.BLuaFieldExt"
+}
+
 method ::= named_function_stmt
 
 // An expression, this could be any expression under the ordered groups.
@@ -212,7 +224,8 @@ private var_leftover ::=
 
 var_ref_expr ::= ID_TOKEN
 {
-    mixin="nl.clemaire.plugins.blua.ast.mixin.BLuaVarRefMixin"
+    mixin="nl.clemaire.plugins.blua.ast.mixin.misc.BLuaVarRefMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.misc.BLuaVarRefExt"
 }
 
 par_expr ::= "(" expr ")"
@@ -222,15 +235,17 @@ index_tab_expr ::= "[" expr "]"
 index_dot_expr ::= "." var_ref_expr
 
 // Anonymous function expressions, these are lambdas
-function_expr ::= "function" "(" [params] ")" [type_decl] block "end"
+function_expr ::= "function" "(" [params] ")" block "end"
 {
     pin=1
-    implements="nl.clemaire.plugins.blua.ast.ext.BLuaAnonymousFunctionExt"
+    mixin="nl.clemaire.plugins.blua.ast.mixin.expr.BLuaFunctionExprMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.expr.BLuaFunctionExprExt"
 }
 lambda_expr ::= "(" [params] ")" "=>" block
 {
     pin=1
-    implements="nl.clemaire.plugins.blua.ast.ext.BLuaAnonymousFunctionExt"
+    mixin="nl.clemaire.plugins.blua.ast.mixin.expr.BLuaFunctionExprMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.expr.BLuaFunctionExprExt"
 }
 
 // Table expression, constructs a table with named fields
@@ -274,18 +289,23 @@ string_args ::= string_expr {extends=args}
 
 args ::= par_args | string_args // TODO: table_constructor
 vars ::= var_expr {"," var_expr}*
-params ::= typed_ids ["," WS "..."] | "..."
+
+// The parameters to a function invocation
+params ::= param {"," param}* ["," WS "..."] | "..."
 {
-    implements="nl.clemaire.plugins.blua.ast.ext.BLuaParamsExt"
+    mixin="nl.clemaire.plugins.blua.ast.mixin.misc.BLuaParamsMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.misc.BLuaParamsExt"
 }
-force_typed_ids ::= force_typed_id {"," force_typed_id}*
+param ::= ID_TOKEN type_decl
 {
+    mixin="nl.clemaire.plugins.blua.ast.mixin.misc.BLuaParamMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.misc.BLuaParamExt"
 }
+
 typed_ids ::= typed_id {"," typed_id}*
-{
-}
 exprs ::= {expr ","}* expr
 
+// Table fields can be defined with array accessors or by simple ids
 table_fields ::= {table_field field_sep}* [table_field]
 table_field ::=
       "[" expr "]" "=" expr
@@ -296,8 +316,11 @@ table_field ::=
 qualified_id ::= {ID_TOKEN "."}* ID_TOKEN
 
 // A name that is declared for the first time and represents a typed variable from now on
-force_typed_id ::= ID_TOKEN type_decl
 typed_id ::= ID_TOKEN [type_decl]
+{
+    mixin="nl.clemaire.plugins.blua.ast.mixin.misc.BLuaTypedIdMixin"
+    implements="nl.clemaire.plugins.blua.ast.ext.misc.BLuaTypedIdExt"
+}
 
 // End-of-line and semicolon tokens for separating statements
 private field_sep ::= ";" | ","

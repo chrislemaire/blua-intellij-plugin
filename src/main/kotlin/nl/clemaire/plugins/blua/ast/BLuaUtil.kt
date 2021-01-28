@@ -31,7 +31,7 @@ fun PsiElement.findPreviousSiblingOrParentNode(start: Boolean = true, p: (PsiEle
  * Finds the previous declaration node before this one or null if none exists.
  */
 fun PsiElement.getPreviousDeclarationNode(): Scoped? =
-    findPreviousSiblingOrParentNode { it is Scoped } as Scoped?
+    findPreviousSiblingOrParentNode { it is Scoped && it !is BLuaParams } as Scoped?
 
 /**
  * Finds the full scope of the last scope changing declaration.
